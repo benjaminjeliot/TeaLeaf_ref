@@ -84,6 +84,36 @@ SUBROUTINE update_boundary( fields,depth)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ENDIF
+
+    if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+      do t=1,tiles_per_task
+        call update_halo_kernel(chunk%tiles(t)%field%x_min, &
+                                chunk%tiles(t)%field%x_max, &
+                                chunk%tiles(t)%field%y_min, &
+                                chunk%tiles(t)%field%y_max, &
+                                chunk%halo_exchange_depth, &
+                                chunk%chunk_neighbours, &
+                                chunk%tiles(t)%tile_neighbours, &
+                                chunk%tiles(t)%field%density, &
+                                chunk%tiles(t)%field%energy0, &
+                                chunk%tiles(t)%field%energy1, &
+                                chunk%tiles(t)%field%u, &
+                                chunk%tiles(t)%field%vector_p, &
+                                chunk%tiles(t)%field%vector_sd, &
+                                chunk%tiles(t)%field%vector_rtemp, &
+                                chunk%tiles(t)%field%vector_z, &
+                                chunk%tiles(t)%field%vector_kx, &
+                                chunk%tiles(t)%field%vector_ky, &
+                                chunk%tiles(t)%field%vector_di, &
+                                fields, &
+                                depth                           )
+      end do
+!$omp end do nowait
+!$omp end parallel
+    end if
+
   ENDIF
 
   IF (profiler_on) profiler%halo_update = profiler%halo_update + (timer() - halo_time)
@@ -193,6 +223,100 @@ SUBROUTINE update_tile_boundary( fields, depth)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ENDIF
+
+    if (use_cpp_kernels) then
+!$omp parallel private(right_idx, up_idx)
+!$omp do
+      do t=1,tiles_per_task
+        right_idx = chunk%tiles(t)%tile_neighbours(CHUNK_RIGHT)
+
+        if (right_idx .ne. EXTERNAL_FACE) then
+          call update_internal_halo_left_right_kernel( &
+                                  chunk%tiles(t)%field%x_min, &
+                                  chunk%tiles(t)%field%x_max, &
+                                  chunk%tiles(t)%field%y_min, &
+                                  chunk%tiles(t)%field%y_max, &
+                                  chunk%tiles(t)%field%density, &
+                                  chunk%tiles(t)%field%energy0, &
+                                  chunk%tiles(t)%field%energy1, &
+                                  chunk%tiles(t)%field%u, &
+                                  chunk%tiles(t)%field%vector_p, &
+                                  chunk%tiles(t)%field%vector_sd, &
+                                  chunk%tiles(t)%field%vector_rtemp, &
+                                  chunk%tiles(t)%field%vector_z, &
+                                  chunk%tiles(t)%field%vector_kx, &
+                                  chunk%tiles(t)%field%vector_ky, &
+                                  chunk%tiles(t)%field%vector_di, &
+                                  chunk%tiles(right_idx)%field%x_min, &
+                                  chunk%tiles(right_idx)%field%x_max, &
+                                  chunk%tiles(right_idx)%field%y_min, &
+                                  chunk%tiles(right_idx)%field%y_max, &
+                                  chunk%tiles(right_idx)%field%density, &
+                                  chunk%tiles(right_idx)%field%energy0, &
+                                  chunk%tiles(right_idx)%field%energy1, &
+                                  chunk%tiles(right_idx)%field%u, &
+                                  chunk%tiles(right_idx)%field%vector_p, &
+                                  chunk%tiles(right_idx)%field%vector_sd, &
+                                  chunk%tiles(right_idx)%field%vector_rtemp, &
+                                  chunk%tiles(right_idx)%field%vector_z, &
+                                  chunk%tiles(right_idx)%field%vector_kx, &
+                                  chunk%tiles(right_idx)%field%vector_ky, &
+                                  chunk%tiles(right_idx)%field%vector_di, &
+                                  chunk%halo_exchange_depth, &
+                                  fields, &
+                                  depth)
+        end if
+      end do
+!$omp end do nowait
+
+!$  if (depth .gt. 1) then
+!$omp barrier
+!$  end if
+
+!$omp do
+      do t=1,tiles_per_task
+        up_idx = chunk%tiles(t)%tile_neighbours(CHUNK_TOP)
+
+        if (up_idx .ne. EXTERNAL_FACE) then
+          call update_internal_halo_bottom_top_kernel( &
+                                  chunk%tiles(t)%field%x_min, &
+                                  chunk%tiles(t)%field%x_max, &
+                                  chunk%tiles(t)%field%y_min, &
+                                  chunk%tiles(t)%field%y_max, &
+                                  chunk%tiles(t)%field%density, &
+                                  chunk%tiles(t)%field%energy0, &
+                                  chunk%tiles(t)%field%energy1, &
+                                  chunk%tiles(t)%field%u, &
+                                  chunk%tiles(t)%field%vector_p, &
+                                  chunk%tiles(t)%field%vector_sd, &
+                                  chunk%tiles(t)%field%vector_rtemp, &
+                                  chunk%tiles(t)%field%vector_z, &
+                                  chunk%tiles(t)%field%vector_kx, &
+                                  chunk%tiles(t)%field%vector_ky, &
+                                  chunk%tiles(t)%field%vector_di, &
+                                  chunk%tiles(up_idx)%field%x_min, &
+                                  chunk%tiles(up_idx)%field%x_max, &
+                                  chunk%tiles(up_idx)%field%y_min, &
+                                  chunk%tiles(up_idx)%field%y_max, &
+                                  chunk%tiles(up_idx)%field%density, &
+                                  chunk%tiles(up_idx)%field%energy0, &
+                                  chunk%tiles(up_idx)%field%energy1, &
+                                  chunk%tiles(up_idx)%field%u, &
+                                  chunk%tiles(up_idx)%field%vector_p, &
+                                  chunk%tiles(up_idx)%field%vector_sd, &
+                                  chunk%tiles(up_idx)%field%vector_rtemp, &
+                                  chunk%tiles(up_idx)%field%vector_z, &
+                                  chunk%tiles(up_idx)%field%vector_kx, &
+                                  chunk%tiles(up_idx)%field%vector_ky, &
+                                  chunk%tiles(up_idx)%field%vector_di, &
+                                  chunk%halo_exchange_depth, &
+                                  fields, &
+                                  depth)
+        end if
+      end do
+!$omp end do nowait
+!$omp end parallel
+    end if
   ENDIF
 
   IF (profiler_on) profiler%internal_halo_update = profiler%internal_halo_update + (timer() - halo_time)

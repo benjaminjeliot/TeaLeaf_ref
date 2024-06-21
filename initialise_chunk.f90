@@ -63,4 +63,33 @@ SUBROUTINE initialise_chunk()
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel private(xmin, ymin)
+!$omp do
+    do t=1,tiles_per_task
+      xmin=grid%xmin + dx*REAL(chunk%tiles(t)%left-1)
+
+      ymin=grid%ymin + dy*REAL(chunk%tiles(t)%bottom-1)
+
+      call initialise_chunk_kernel(chunk%tiles(t)%field%x_min,    &
+                                    chunk%tiles(t)%field%x_max,    &
+                                    chunk%tiles(t)%field%y_min,    &
+                                    chunk%tiles(t)%field%y_max,    &
+                                    xmin,ymin,dx,dy,              &
+                                    chunk%tiles(t)%field%vertexx,  &
+                                    chunk%tiles(t)%field%vertexdx, &
+                                    chunk%tiles(t)%field%vertexy,  &
+                                    chunk%tiles(t)%field%vertexdy, &
+                                    chunk%tiles(t)%field%cellx,    &
+                                    chunk%tiles(t)%field%celldx,   &
+                                    chunk%tiles(t)%field%celly,    &
+                                    chunk%tiles(t)%field%celldy,   &
+                                    chunk%tiles(t)%field%volume,   &
+                                    chunk%tiles(t)%field%xarea,    &
+                                    chunk%tiles(t)%field%yarea     )
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE initialise_chunk

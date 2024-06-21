@@ -61,6 +61,7 @@ SUBROUTINE read_input()
   eps=1.0e-10
 
   use_fortran_kernels=.TRUE.
+  use_cpp_kernels = .false.
   coefficient = CONDUCTIVITY
   profiler_on=.FALSE.
   profiler%timestep=0.0
@@ -220,6 +221,10 @@ SUBROUTINE read_input()
         enddo
       CASE('use_fortran_kernels')
         use_fortran_kernels=.TRUE.
+        use_cpp_kernels = .false.
+      case('use_cpp_kernels')
+        use_cpp_kernels = .true.
+        use_fortran_kernels = .false.
       CASE('verbose_on')
         verbose_on=.TRUE.
       CASE('tl_use_jacobi')
@@ -336,6 +341,9 @@ SUBROUTINE read_input()
     IF(use_fortran_kernels) THEN
       WRITE(g_out,"(1x,a)")'Using Fortran Kernels'
     ENDIF
+    if (use_cpp_kernels) then
+      write(g_out,"(1x,a)") "Using C++ Kernels"
+    end if
     WRITE(g_out,*)
     WRITE(g_out,*) 'Input read finished.'
     WRITE(g_out,*)

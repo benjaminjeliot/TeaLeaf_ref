@@ -65,6 +65,7 @@ MODULE definitions_module
    LOGICAL      :: complete
 
    LOGICAL      :: use_fortran_kernels
+   logical      :: use_cpp_kernels
    LOGICAL      :: tl_use_chebyshev
    LOGICAL      :: tl_use_cg
    LOGICAL      :: tl_use_ppcg

@@ -46,6 +46,35 @@ SUBROUTINE tea_leaf_cheby_init(theta)
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call tea_leaf_kernel_cheby_init(chunk%tiles(t)%field%x_min,&
+            chunk%tiles(t)%field%x_max,                          &
+            chunk%tiles(t)%field%y_min,                          &
+            chunk%tiles(t)%field%y_max,                          &
+            chunk%halo_exchange_depth,                           &
+            chunk%tiles(t)%field%u,                              &
+            chunk%tiles(t)%field%u0,                             &
+            chunk%tiles(t)%field%vector_p,                       &
+            chunk%tiles(t)%field%vector_r,                       &
+            chunk%tiles(t)%field%vector_Mi,                      &
+            chunk%tiles(t)%field%vector_w,                       &
+            chunk%tiles(t)%field%vector_z,                       &
+            chunk%tiles(t)%field%vector_Kx,                      &
+            chunk%tiles(t)%field%vector_Ky,                      &
+            chunk%tiles(t)%field%vector_Di,                      &
+            chunk%tiles(t)%field%tri_cp,   &
+            chunk%tiles(t)%field%tri_bfp,    &
+            chunk%tiles(t)%field%rx,    &
+            chunk%tiles(t)%field%ry,    &
+            theta, tl_preconditioner_type)
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_cheby_init
 
 SUBROUTINE tea_leaf_cheby_iterate(ch_alphas, ch_betas, max_cheby_iters, cheby_calc_steps)
@@ -84,6 +113,36 @@ SUBROUTINE tea_leaf_cheby_iterate(ch_alphas, ch_betas, max_cheby_iters, cheby_ca
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
   ENDIF
+
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call tea_leaf_kernel_cheby_iterate(chunk%tiles(t)%field%x_min,&
+                  chunk%tiles(t)%field%x_max,                       &
+                  chunk%tiles(t)%field%y_min,                       &
+                  chunk%tiles(t)%field%y_max,                       &
+                  chunk%halo_exchange_depth,                        &
+                  chunk%tiles(t)%field%u,                           &
+                  chunk%tiles(t)%field%u0,                          &
+                  chunk%tiles(t)%field%vector_p,                    &
+                  chunk%tiles(t)%field%vector_r,                    &
+                  chunk%tiles(t)%field%vector_Mi,                   &
+                  chunk%tiles(t)%field%vector_w,                    &
+                  chunk%tiles(t)%field%vector_z,                    &
+                  chunk%tiles(t)%field%vector_Kx,                   &
+                  chunk%tiles(t)%field%vector_Ky,                   &
+                  chunk%tiles(t)%field%vector_Di,                   &
+                  chunk%tiles(t)%field%tri_cp,   &
+                  chunk%tiles(t)%field%tri_bfp,    &
+                  ch_alphas, ch_betas, max_cheby_iters,        &
+                  chunk%tiles(t)%field%rx,  &
+                  chunk%tiles(t)%field%ry,  &
+                  cheby_calc_steps, tl_preconditioner_type)
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
 
 END SUBROUTINE tea_leaf_cheby_iterate
 

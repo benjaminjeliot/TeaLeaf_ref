@@ -77,4 +77,37 @@ SUBROUTINE generate_chunk()
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+        do t=1,tiles_per_task
+          call generate_chunk_kernel(chunk%tiles(t)%field%x_min,             &
+                                     chunk%tiles(t)%field%x_max,             &
+                                     chunk%tiles(t)%field%y_min,             &
+                                     chunk%tiles(t)%field%y_max,             &
+                                     chunk%halo_exchange_depth,              &
+                                     chunk%tiles(t)%field%vertexx,           &
+                                     chunk%tiles(t)%field%vertexy,           &
+                                     chunk%tiles(t)%field%cellx,             &
+                                     chunk%tiles(t)%field%celly,             &
+                                     chunk%tiles(t)%field%density,           &
+                                     chunk%tiles(t)%field%energy0,           &
+                                     chunk%tiles(t)%field%u,                 &
+                                     number_of_states,                      &
+                                     state_density,                         &
+                                     state_energy,                          &
+                                     state_xmin,                            &
+                                     state_xmax,                            &
+                                     state_ymin,                            &
+                                     state_ymax,                            &
+                                     state_radius,                          &
+                                     state_geometry,                        &
+                                     g_rect,                                &
+                                     g_circ,                                &
+                                     g_point)
+        end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE generate_chunk

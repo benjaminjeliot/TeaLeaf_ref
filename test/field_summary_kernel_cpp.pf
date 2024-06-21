@@ -1,0 +1,67 @@
+! Copyright (c) 2024
+!
+! This file is part of TeaLeaf.
+!
+! TeaLeaf is free software: you can redistribute it and/or modify it under the
+! terms of the GNU General Public License as published by the Free Software
+! Foundation, either version 3 of the License, or (at your option) any later
+! version.
+!
+! TeaLeaf is distributed in the hope that it will be useful, but WITHOUT ANY
+! WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+! A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License along with
+! TeaLeaf. If not, see http://www.gnu.org/licenses/.
+
+@test
+subroutine test_field_summary_kernel_cpp_simple()
+  use pfunit
+  use field_summary_kernel_cpp_module, only : field_summary_kernel_cpp
+  implicit none
+  integer :: input_unit
+  integer :: x_min, x_max, y_min, y_max, halo_exchange_depth
+  integer :: x_size, y_size
+  real(kind=8), allocatable :: volume(:,:), density(:,:), energy1(:,:), u(:,:)
+  real(kind=8) :: vol, mass, ie, temp
+  real(kind=8) :: expected_vol, expected_mass, expected_ie, expected_temp
+  real, parameter :: tolerance_factor = 1.0e-6
+
+  ! Read test data from file
+  open(newunit=input_unit,file="data/field_summary_kernel_001.txt")
+  read(input_unit,*) x_min, x_max, y_min, y_max, halo_exchange_depth
+
+  allocate(volume(x_min-2:x_max+2, y_min-2:y_max+2))
+  allocate(density(x_min-halo_exchange_depth:x_max+halo_exchange_depth, &
+    y_min-halo_exchange_depth:y_max+halo_exchange_depth))
+  allocate(energy1(x_min-halo_exchange_depth:x_max+halo_exchange_depth, &
+    y_min-halo_exchange_depth:y_max+halo_exchange_depth))
+  allocate(u(x_min-halo_exchange_depth:x_max+halo_exchange_depth, &
+    y_min-halo_exchange_depth:y_max+halo_exchange_depth))
+
+  read(input_unit,*) x_size, y_size
+  read(input_unit,*) volume
+  read(input_unit,*) x_size, y_size
+  read(input_unit,*) density
+  read(input_unit,*) x_size, y_size
+  read(input_unit,*) energy1
+  read(input_unit,*) x_size, y_size
+  read(input_unit,*) u
+
+  close(input_unit)
+
+  call field_summary_kernel_cpp(x_min, x_max, y_min, y_max, halo_exchange_depth, &
+    volume, density, energy1, u, vol, mass, ie, temp)
+
+  deallocate(volume, density, energy1, u)
+
+  expected_vol = 100.00000000000000
+  expected_mass = 8401.6000000000022
+  expected_ie = 3.4899999999999927
+  expected_temp = 157.55084183279294
+
+  @assertEqual(expected_vol, vol, tolerance=expected_vol*tolerance_factor)
+  @assertEqual(expected_mass, mass, tolerance=expected_mass*tolerance_factor)
+  @assertEqual(expected_ie, ie, tolerance=expected_ie*tolerance_factor)
+  @assertEqual(expected_temp, temp, tolerance=expected_temp*tolerance_factor)
+end subroutine test_field_summary_kernel_cpp_simple

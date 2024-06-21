@@ -28,6 +28,7 @@ SUBROUTINE field_summary()
 
   USE tea_module
   USE field_summary_kernel_module
+  use field_summary_kernel_cpp_module, only : field_summary_kernel_cpp
 
   IMPLICIT NONE
 
@@ -83,6 +84,35 @@ SUBROUTINE field_summary()
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
   ENDIF
+
+  if (use_cpp_kernels) then
+!$omp parallel private(tile_vol,tile_mass,tile_ie,tile_temp)
+!$omp do reduction(+ : vol,mass,ie,temp)
+    do t=1,tiles_per_task
+      tile_vol=0.0
+      tile_mass=0.0
+      tile_ie=0.0
+      tile_temp=0.0
+
+      call field_summary_kernel_cpp(chunk%tiles(t)%field%x_min,                   &
+                                chunk%tiles(t)%field%x_max,                   &
+                                chunk%tiles(t)%field%y_min,                   &
+                                chunk%tiles(t)%field%y_max,                   &
+                                chunk%halo_exchange_depth,                    &
+                                chunk%tiles(t)%field%volume,                  &
+                                chunk%tiles(t)%field%density,                 &
+                                chunk%tiles(t)%field%energy1,                 &
+                                chunk%tiles(t)%field%u,                       &
+                                tile_vol,tile_mass,tile_ie,tile_temp)
+
+      vol = vol + tile_vol
+      mass = mass + tile_mass
+      ie = ie + tile_ie
+      temp = temp + tile_temp
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
 
   ! For mpi I need a reduction here
   CALL tea_sum(vol)

@@ -43,6 +43,32 @@ SUBROUTINE tea_leaf_jacobi_solve(error)
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel private(tile_error)
+!$omp do reduction(+:error)
+    do t=1,tiles_per_task
+      tile_error = 0.0_8
+
+      call tea_leaf_jacobi_solve_kernel(chunk%tiles(t)%field%x_min,&
+          chunk%tiles(t)%field%x_max,                       &
+          chunk%tiles(t)%field%y_min,                       &
+          chunk%tiles(t)%field%y_max,                       &
+          chunk%halo_exchange_depth,                        &
+          chunk%tiles(t)%field%rx,                                          &
+          chunk%tiles(t)%field%ry,                                          &
+          chunk%tiles(t)%field%vector_Kx,                   &
+          chunk%tiles(t)%field%vector_Ky,                   &
+          tile_error,                                       &
+          chunk%tiles(t)%field%u0,                          &
+          chunk%tiles(t)%field%u,                           &
+          chunk%tiles(t)%field%vector_r)
+
+      error = error + tile_error
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_jacobi_solve
 
 END MODULE tea_leaf_jacobi_module
