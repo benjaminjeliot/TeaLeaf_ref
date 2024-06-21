@@ -47,6 +47,36 @@ SUBROUTINE tea_leaf_cg_init(rro)
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel private(tile_rro) reduction(+:rro)
+!$omp do
+    do t=1,tiles_per_task
+      tile_rro = 0.0_8
+
+      call tea_leaf_cg_init_kernel(chunk%tiles(t)%field%x_min, &
+          chunk%tiles(t)%field%x_max,                                  &
+          chunk%tiles(t)%field%y_min,                                  &
+          chunk%tiles(t)%field%y_max,                                  &
+          chunk%halo_exchange_depth,                                   &
+          chunk%tiles(t)%field%vector_p,                               &
+          chunk%tiles(t)%field%vector_r,                               &
+          chunk%tiles(t)%field%vector_Mi,                              &
+          chunk%tiles(t)%field%vector_z,                               &
+          chunk%tiles(t)%field%vector_Kx,                              &
+          chunk%tiles(t)%field%vector_Ky,                              &
+          chunk%tiles(t)%field%vector_Di,                              &
+          chunk%tiles(t)%field%tri_cp,   &
+          chunk%tiles(t)%field%tri_bfp,    &
+          chunk%tiles(t)%field%rx,  &
+          chunk%tiles(t)%field%ry,  &
+          tile_rro, tl_preconditioner_type)
+
+      rro = rro + tile_rro
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_cg_init
 
 SUBROUTINE tea_leaf_cg_calc_w( pw)
@@ -84,6 +114,31 @@ SUBROUTINE tea_leaf_cg_calc_w( pw)
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel private(tile_pw) reduction(+:pw)
+!$omp do
+    do t=1,tiles_per_task
+          tile_pw = 0.0_8
+    
+      call tea_leaf_cg_calc_w_kernel(chunk%tiles(t)%field%x_min,&
+          chunk%tiles(t)%field%x_max,                                         &
+          chunk%tiles(t)%field%y_min,                                         &
+          chunk%tiles(t)%field%y_max,                                         &
+          chunk%halo_exchange_depth,                                          &
+          chunk%tiles(t)%field%vector_p,                                      &
+          chunk%tiles(t)%field%vector_w,                                      &
+          chunk%tiles(t)%field%vector_Kx,                                     &
+          chunk%tiles(t)%field%vector_Ky,                                     &
+          chunk%tiles(t)%field%vector_Di,                                     &
+          chunk%tiles(t)%field%rx,  &
+          chunk%tiles(t)%field%ry,  &
+          tile_pw)
+
+      pw = pw + tile_pw
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
 
 END SUBROUTINE tea_leaf_cg_calc_w
 
@@ -128,6 +183,38 @@ SUBROUTINE tea_leaf_cg_calc_ur( alpha, rrn)
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel private(tile_rrn) reduction(+:rrn)
+!$omp do
+    do t=1,tiles_per_task
+      tile_rrn = 0.0_8
+
+      call tea_leaf_cg_calc_ur_kernel(chunk%tiles(t)%field%x_min,&
+          chunk%tiles(t)%field%x_max,                                          &
+          chunk%tiles(t)%field%y_min,                                          &
+          chunk%tiles(t)%field%y_max,                                          &
+          chunk%halo_exchange_depth,                                           &
+          chunk%tiles(t)%field%u,                                              &
+          chunk%tiles(t)%field%vector_p,                                       &
+          chunk%tiles(t)%field%vector_r,                                       &
+          chunk%tiles(t)%field%vector_Mi,                                      &
+          chunk%tiles(t)%field%vector_w,                                       &
+          chunk%tiles(t)%field%vector_z,                                       &
+          chunk%tiles(t)%field%tri_cp,   &
+          chunk%tiles(t)%field%tri_bfp,    &
+          chunk%tiles(t)%field%vector_Kx,                              &
+          chunk%tiles(t)%field%vector_Ky,                              &
+          chunk%tiles(t)%field%vector_Di,                              &
+          chunk%tiles(t)%field%rx,  &
+          chunk%tiles(t)%field%ry, &
+          alpha, tile_rrn, tl_preconditioner_type)
+
+      rrn = rrn + tile_rrn
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_cg_calc_ur
 
 SUBROUTINE tea_leaf_cg_calc_p( beta)
@@ -154,6 +241,24 @@ SUBROUTINE tea_leaf_cg_calc_p( beta)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
   ENDIF
+
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call tea_leaf_cg_calc_p_kernel(chunk%tiles(t)%field%x_min,&
+          chunk%tiles(t)%field%x_max,                                         &
+          chunk%tiles(t)%field%y_min,                                         &
+          chunk%tiles(t)%field%y_max,                                         &
+          chunk%halo_exchange_depth,                                          &
+          chunk%tiles(t)%field%vector_p,                                      &
+          chunk%tiles(t)%field%vector_r,                                      &
+          chunk%tiles(t)%field%vector_z,                                      &
+          beta, tl_preconditioner_type)
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
 
 END SUBROUTINE tea_leaf_cg_calc_p
 

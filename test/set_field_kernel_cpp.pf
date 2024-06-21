@@ -1,0 +1,47 @@
+! Copyright (c) 2024
+!
+! This file is part of TeaLeaf.
+!
+! TeaLeaf is free software: you can redistribute it and/or modify it under the
+! terms of the GNU General Public License as published by the Free Software
+! Foundation, either version 3 of the License, or (at your option) any later
+! version.
+!
+! TeaLeaf is distributed in the hope that it will be useful, but WITHOUT ANY
+! WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+! A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License along with
+! TeaLeaf. If not, see http://www.gnu.org/licenses/.
+
+@test
+subroutine set_field_kernel_cpp_simple()
+  use pfunit
+  use set_field_kernel_cpp_module, only : set_field_kernel_cpp
+  implicit none
+
+  integer :: x_min, x_max, y_min, y_max
+  integer, parameter :: halo_exchange_depth = 1
+  real(kind=8), allocatable, dimension(:, :) :: energy0, energy1, expected_energy1
+  real, parameter :: tolerance_factor = 1.0e-6
+
+  x_min = 1
+  x_max = 16
+  y_min = 1
+  y_max = 16
+
+  allocate( &
+    energy0(x_min-halo_exchange_depth:x_max+halo_exchange_depth, y_min-halo_exchange_depth:y_max+halo_exchange_depth), &
+    energy1(x_min-halo_exchange_depth:x_max+halo_exchange_depth, y_min-halo_exchange_depth:y_max+halo_exchange_depth), &
+    expected_energy1(x_min-halo_exchange_depth:x_max+halo_exchange_depth, y_min-halo_exchange_depth:y_max+halo_exchange_depth))
+
+  ! Initialize arrays
+  call random_number(energy0)
+  energy1 = 0.0
+  expected_energy1 = 0.0
+  expected_energy1(x_min:x_max, y_min:y_max) = energy0(x_min:x_max, y_min:y_max)
+
+  call set_field_kernel_cpp(x_min, x_max, y_min, y_max, halo_exchange_depth, energy0, energy1)
+  @assertEqual(expected_energy1, energy1, tolerance=tolerance_factor)
+
+end subroutine set_field_kernel_cpp_simple

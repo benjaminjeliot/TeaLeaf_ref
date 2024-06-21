@@ -65,6 +65,34 @@ SUBROUTINE tea_leaf_ppcg_init_sd(theta)
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call tea_leaf_kernel_ppcg_init_sd(chunk%tiles(t)%field%x_min,&
+          chunk%tiles(t)%field%x_max,                              &
+          chunk%tiles(t)%field%y_min,                              &
+          chunk%tiles(t)%field%y_max,                              &
+          chunk%halo_exchange_depth,                               &
+          chunk%tiles(t)%field%vector_r,                           &
+          chunk%tiles(t)%field%vector_Kx,                          &
+          chunk%tiles(t)%field%vector_Ky,                          &  
+          chunk%tiles(t)%field%vector_Di,                          &
+          chunk%tiles(t)%field%vector_sd,                          &
+          chunk%tiles(t)%field%vector_z,                           &
+          chunk%tiles(t)%field%vector_utemp,                       &
+          chunk%tiles(t)%field%vector_rtemp,                       &
+          chunk%tiles(t)%field%tri_cp,                             &
+          chunk%tiles(t)%field%tri_bfp,                            &
+          chunk%tiles(t)%field%vector_Mi,                          &
+          chunk%tiles(t)%field%rx,                                 &
+          chunk%tiles(t)%field%ry,                                 &
+          theta, tl_preconditioner_type)
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_ppcg_init_sd
 
 ! This routine is needed to initialise PPCG
@@ -113,6 +141,37 @@ SUBROUTINE tea_leaf_ppcg_init(ppcg_inner_iters, ch_alphas, ch_betas, theta, solv
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel private(tile_rro) reduction(+:rro)
+!$omp do
+    do t=1,tiles_per_task
+      tile_rro = 0.0_8
+
+      call tea_leaf_ppcg_init_kernel(chunk%tiles(t)%field%x_min, &
+          chunk%tiles(t)%field%x_max,                                  &
+          chunk%tiles(t)%field%y_min,                                  &
+          chunk%tiles(t)%field%y_max,                                  &
+          chunk%halo_exchange_depth,                                   &
+          chunk%tiles(t)%field%vector_p,                               &
+          chunk%tiles(t)%field%vector_r,                               &
+          chunk%tiles(t)%field%vector_Mi,                              &
+          chunk%tiles(t)%field%vector_z,                               &
+          chunk%tiles(t)%field%vector_Kx,                              &
+          chunk%tiles(t)%field%vector_Ky,                              &
+          chunk%tiles(t)%field%vector_Di,                              &
+          chunk%tiles(t)%field%tri_cp,                                 &
+          chunk%tiles(t)%field%tri_bfp,                                &
+          chunk%tiles(t)%field%rx,                                     &
+          chunk%tiles(t)%field%ry,                                     &
+          tile_rro, tl_preconditioner_type, &
+          ppcg_inner_iters, ch_alphas, ch_betas, theta, solve_time, step)
+
+      rro = rro + tile_rro
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_ppcg_init
 
 SUBROUTINE tea_leaf_ppcg_calc_zrnorm(rrn)
@@ -145,6 +204,27 @@ SUBROUTINE tea_leaf_ppcg_calc_zrnorm(rrn)
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel private(tile_rrn)
+!$omp do reduction(+:rrn)
+    do t=1,tiles_per_task
+      tile_rrn = 0.0_8
+
+      call tea_leaf_ppcg_calc_zrnorm_kernel(chunk%tiles(t)%field%x_min, &
+            chunk%tiles(t)%field%x_max,                           &
+            chunk%tiles(t)%field%y_min,                           &
+            chunk%tiles(t)%field%y_max,                           &
+            chunk%halo_exchange_depth,                            &
+            chunk%tiles(t)%field%vector_z,                        &
+            chunk%tiles(t)%field%vector_r,                        &
+            tl_preconditioner_type, tile_rrn)
+
+      rrn = rrn + tile_rrn
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_ppcg_calc_zrnorm
 
 SUBROUTINE tea_leaf_ppcg_update_z()
@@ -169,6 +249,22 @@ SUBROUTINE tea_leaf_ppcg_update_z()
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call tea_leaf_ppcg_update_z_kernel(chunk%tiles(t)%field%x_min, &
+            chunk%tiles(t)%field%x_max,                           &
+            chunk%tiles(t)%field%y_min,                           &
+            chunk%tiles(t)%field%y_max,                           &
+            chunk%halo_exchange_depth,                            &
+            chunk%tiles(t)%field%vector_z,                        &
+            chunk%tiles(t)%field%vector_utemp)
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_ppcg_update_z
 
 SUBROUTINE tea_leaf_ppcg_pupdate
@@ -192,6 +288,22 @@ SUBROUTINE tea_leaf_ppcg_pupdate
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
   ENDIF
+
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call tea_leaf_ppcg_pupdate_kernel(chunk%tiles(t)%field%x_min, &
+            chunk%tiles(t)%field%x_max,                           &
+            chunk%tiles(t)%field%y_min,                           &
+            chunk%tiles(t)%field%y_max,                           &
+            chunk%halo_exchange_depth,                            &
+            chunk%tiles(t)%field%vector_z,                        &
+            chunk%tiles(t)%field%vector_p)
+    end do
+!$omp end do nowait
+!$omp end parallel
+  end if
 
 END SUBROUTINE tea_leaf_ppcg_pupdate
 
@@ -309,6 +421,64 @@ SUBROUTINE tea_leaf_run_ppcg_inner_steps(ch_alphas, ch_betas, theta, &
 
     ENDIF
 
+    if (use_cpp_kernels) then
+      if (chunk%tiles(t)%tile_neighbours(CHUNK_LEFT) .ne. EXTERNAL_FACE .or. &
+          chunk%chunk_neighbours(CHUNK_LEFT) .ne. EXTERNAL_FACE) then
+        x_min_bound = chunk%tiles(t)%field%x_min - bounds_extra
+      else
+        x_min_bound = chunk%tiles(t)%field%x_min
+      end if
+
+      if (chunk%tiles(t)%tile_neighbours(CHUNK_RIGHT) .ne. EXTERNAL_FACE .or. &
+          chunk%chunk_neighbours(CHUNK_RIGHT) .ne. EXTERNAL_FACE) then
+        x_max_bound = chunk%tiles(t)%field%x_max + bounds_extra
+      else
+        x_max_bound = chunk%tiles(t)%field%x_max
+      end if
+
+      if (chunk%tiles(t)%tile_neighbours(CHUNK_BOTTOM) .ne. EXTERNAL_FACE .or. &
+          chunk%chunk_neighbours(CHUNK_BOTTOM) .ne. EXTERNAL_FACE) then
+        y_min_bound = chunk%tiles(t)%field%y_min - bounds_extra
+      else
+        y_min_bound = chunk%tiles(t)%field%y_min
+      end if
+
+      if (chunk%tiles(t)%tile_neighbours(CHUNK_TOP) .ne. EXTERNAL_FACE .or. &
+          chunk%chunk_neighbours(CHUNK_TOP) .ne. EXTERNAL_FACE) then
+        y_max_bound = chunk%tiles(t)%field%y_max + bounds_extra
+      else
+        y_max_bound = chunk%tiles(t)%field%y_max
+      end if
+
+      call tea_leaf_kernel_ppcg_inner(chunk%tiles(t)%field%x_min, &
+          chunk%tiles(t)%field%x_max, &
+          chunk%tiles(t)%field%y_min, &
+          chunk%tiles(t)%field%y_max, &
+          chunk%halo_exchange_depth, &
+          x_min_bound, &
+          x_max_bound, &
+          y_min_bound, &
+          y_max_bound, &
+          ch_alphas, ch_betas, &
+          chunk%tiles(t)%field%rx, &
+          chunk%tiles(t)%field%ry, &
+          ppcg_cur_step + chunk%halo_exchange_depth-1 - bounds_extra, &
+          chunk%tiles(t)%field%u, &
+          chunk%tiles(t)%field%vector_r, &
+          chunk%tiles(t)%field%vector_Kx, &
+          chunk%tiles(t)%field%vector_Ky, &
+          chunk%tiles(t)%field%vector_Di, &
+          chunk%tiles(t)%field%vector_sd, &
+          chunk%tiles(t)%field%vector_z, &
+          chunk%tiles(t)%field%vector_utemp, &
+          chunk%tiles(t)%field%vector_rtemp, &
+          chunk%tiles(t)%field%tri_cp, &
+          chunk%tiles(t)%field%tri_bfp, &
+          chunk%tiles(t)%field%vector_Mi, &
+          tl_preconditioner_type)
+
+    end if
+
 !$    IF(OMP_GET_THREAD_NUM().EQ.0) THEN
       IF (profiler_on) halo_time = timer()
 !$    ENDIF
@@ -336,6 +506,29 @@ SUBROUTINE tea_leaf_run_ppcg_inner_steps(ch_alphas, ch_betas, theta, &
                                 fields,                                     &
                                 1)
       ENDIF
+
+      if (use_cpp_kernels) then
+        call update_halo_kernel(chunk%tiles(t)%field%x_min, &
+                                chunk%tiles(t)%field%x_max, &
+                                chunk%tiles(t)%field%y_min, &
+                                chunk%tiles(t)%field%y_max, &
+                                chunk%halo_exchange_depth, &
+                                chunk%chunk_neighbours, &
+                                chunk%tiles(t)%tile_neighbours, &
+                                chunk%tiles(t)%field%density, &
+                                chunk%tiles(t)%field%energy0, &
+                                chunk%tiles(t)%field%energy1, &
+                                chunk%tiles(t)%field%u, &
+                                chunk%tiles(t)%field%vector_p, &
+                                chunk%tiles(t)%field%vector_sd, &
+                                chunk%tiles(t)%field%vector_rtemp, &
+                                chunk%tiles(t)%field%vector_z, &
+                                chunk%tiles(t)%field%vector_kx, &
+                                chunk%tiles(t)%field%vector_ky, &
+                                chunk%tiles(t)%field%vector_di, &
+                                fields, &
+                                1)
+      end if
     ENDIF
 
 !$    IF(OMP_GET_THREAD_NUM().EQ.0) THEN
@@ -415,6 +608,64 @@ SUBROUTINE tea_leaf_run_ppcg_inner_steps(ch_alphas, ch_betas, theta, &
   
   ENDIF
 
+  if (use_cpp_kernels) then
+    if (chunk%tiles(t)%tile_neighbours(CHUNK_LEFT) .ne. EXTERNAL_FACE .or. &
+        chunk%chunk_neighbours(CHUNK_LEFT) .ne. EXTERNAL_FACE) then
+      x_min_bound = chunk%tiles(t)%field%x_min - bounds_extra
+    else
+      x_min_bound = chunk%tiles(t)%field%x_min
+    end if
+
+    if (chunk%tiles(t)%tile_neighbours(CHUNK_RIGHT) .ne. EXTERNAL_FACE .or. &
+        chunk%chunk_neighbours(CHUNK_RIGHT) .ne. EXTERNAL_FACE) then
+      x_max_bound = chunk%tiles(t)%field%x_max + bounds_extra
+    else
+      x_max_bound = chunk%tiles(t)%field%x_max
+    end if
+
+    if (chunk%tiles(t)%tile_neighbours(CHUNK_BOTTOM) .ne. EXTERNAL_FACE .or. &
+        chunk%chunk_neighbours(CHUNK_BOTTOM) .ne. EXTERNAL_FACE) then
+      y_min_bound = chunk%tiles(t)%field%y_min - bounds_extra
+    else
+      y_min_bound = chunk%tiles(t)%field%y_min
+    end if
+
+    if (chunk%tiles(t)%tile_neighbours(CHUNK_TOP) .ne. EXTERNAL_FACE .or. &
+        chunk%chunk_neighbours(CHUNK_TOP) .ne. EXTERNAL_FACE) then
+      y_max_bound = chunk%tiles(t)%field%y_max + bounds_extra
+    else
+      y_max_bound = chunk%tiles(t)%field%y_max
+    end if
+
+    call tea_leaf_kernel_ppcg_inner(chunk%tiles(t)%field%x_min,&
+        chunk%tiles(t)%field%x_max, &
+        chunk%tiles(t)%field%y_min, &
+        chunk%tiles(t)%field%y_max, &
+        chunk%halo_exchange_depth, &
+        x_min_bound, &
+        x_max_bound, &
+        y_min_bound, &
+        y_max_bound, &
+        ch_alphas, ch_betas, &
+        chunk%tiles(t)%field%rx, &
+        chunk%tiles(t)%field%ry, &
+        ppcg_cur_step + chunk%halo_exchange_depth-1 - bounds_extra, &
+        chunk%tiles(t)%field%u, &
+        chunk%tiles(t)%field%vector_r, &
+        chunk%tiles(t)%field%vector_Kx, &
+        chunk%tiles(t)%field%vector_Ky, &
+        chunk%tiles(t)%field%vector_Di, &
+        chunk%tiles(t)%field%vector_sd, &
+        chunk%tiles(t)%field%vector_z, &
+        chunk%tiles(t)%field%vector_utemp, &
+        chunk%tiles(t)%field%vector_rtemp, &
+        chunk%tiles(t)%field%tri_cp, &
+        chunk%tiles(t)%field%tri_bfp, &
+        chunk%tiles(t)%field%vector_Mi, &
+        tl_preconditioner_type)
+
+  end if
+
       IF (ppcg_cur_step + chunk%halo_exchange_depth-1 - bounds_extra .eq. ppcg_inner_steps) EXIT
     ENDDO
     ENDDO
@@ -451,6 +702,22 @@ SUBROUTINE tea_leaf_ppcg_store_r()
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call tea_leaf_ppcg_store_r_kernel(chunk%tiles(t)%field%x_min,    &
+                                        chunk%tiles(t)%field%x_max,    &
+                                        chunk%tiles(t)%field%y_min,    &
+                                        chunk%tiles(t)%field%y_max,    &
+                                        chunk%halo_exchange_depth,     &
+                                        chunk%tiles(t)%field%vector_r, &
+                                        chunk%tiles(t)%field%vector_r_store )
+    end do
+!$omp end do
+!$omp end parallel
+  end if
+
 END SUBROUTINE tea_leaf_ppcg_store_r
 
 SUBROUTINE tea_leaf_ppcg_calc_rrn(rrn)
@@ -482,6 +749,28 @@ SUBROUTINE tea_leaf_ppcg_calc_rrn(rrn)
 !$OMP END DO
 !$OMP END PARALLEL
   ENDIF
+
+  if (use_fortran_kernels) then
+!$omp parallel private(tile_rrn)
+!$omp do reduction(+:rrn)
+    do t=1,tiles_per_task
+      tile_rrn = 0.0_8
+
+      call tea_leaf_ppcg_calc_rrn_kernel(chunk%tiles(t)%field%x_min,       &
+                                          chunk%tiles(t)%field%x_max,       &
+                                          chunk%tiles(t)%field%y_min,       &
+                                          chunk%tiles(t)%field%y_max,       &
+                                          chunk%halo_exchange_depth,        &
+                                          chunk%tiles(t)%field%vector_r,    &
+                                          chunk%tiles(t)%field%vector_r_store, &
+                                          chunk%tiles(t)%field%vector_z,    &
+                                          tile_rrn)
+
+      rrn = rrn + tile_rrn
+    end do
+!$omp end do
+!$omp end parallel
+  end if
 
 END SUBROUTINE tea_leaf_ppcg_calc_rrn
 

@@ -52,6 +52,22 @@ SUBROUTINE set_field()
 !$OMP END PARALLEL
   ENDIF
 
+  if (use_cpp_kernels) then
+!$omp parallel
+!$omp do
+    do t=1,tiles_per_task
+      call set_field_kernel(chunk%tiles(t)%field%x_min,     &
+                            chunk%tiles(t)%field%x_max,     &
+                            chunk%tiles(t)%field%y_min,     &
+                            chunk%tiles(t)%field%y_max,     &
+                            chunk%halo_exchange_depth,      &
+                            chunk%tiles(t)%field%energy0,   &
+                            chunk%tiles(t)%field%energy1)
+    end do
+!$OMP end do nowait
+!$OMP end parallel
+  end if
+
   IF(profiler_on) profiler%set_field=profiler%set_field+(timer()-kernel_time)
 
 END SUBROUTINE set_field
